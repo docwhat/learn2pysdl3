@@ -1,0 +1,2 @@
+PySDL3
+pygame-ce
