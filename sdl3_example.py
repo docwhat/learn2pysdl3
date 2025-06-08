@@ -1,10 +1,10 @@
-import ctypes
-from ctypes import c_char_p, c_int, c_uint32, c_float
+from ctypes import c_char_p, c_int, c_uint32, c_float, byref, POINTER
 import sdl3
 
 class SDL3ExampleApp:
     height: int
     width: int
+    title: str
 
     window: sdl3.LP_SDL_Window
     renderer: sdl3.LP_SDL_Renderer
@@ -16,20 +16,19 @@ class SDL3ExampleApp:
 
         self.width = 800
         self.height = 600
+        self.title = "SDL3 Example"
 
-        self.window = sdl3.SDL_CreateWindow(
-            c_char_p("SDL3 Example".encode()),
-            c_int(self.width),
-            c_int(self.height),
-            sdl3.SDL_WINDOW_RESIZABLE | sdl3.SDL_WINDOW_METAL # pyright: ignore [reportArgumentType]
-        )
+        self.renderer = POINTER(sdl3.SDL_Renderer)()
+        self.window = POINTER(sdl3.SDL_Window)()
 
-        self.renderer = sdl3.SDL_CreateRenderer(
-            self.window,
-            c_char_p("software".encode())
-        )
-        if not (self.renderer):
-            raise RuntimeError(f"SDL_CreateRenderer failed: {sdl3.SDL_GetError()}")
+        if not sdl3.SDL_CreateWindowAndRenderer(
+            "Hello World!".encode(),
+            self.width, self.height, 0, self.window, self.renderer):
+            sdl3.SDL_Log(f"Couldn't create window/renderer: {sdl3.SDL_GetError()}".encode())
+            raise RuntimeError(f"SDL_CreateWindowAndRenderer failed: {sdl3.SDL_GetError()}")
+
+        # self.create_window()
+        # self.create_renderer()
 
         self.done = False
 
@@ -51,43 +50,62 @@ class SDL3ExampleApp:
     def update(self) -> None:
         event = sdl3.SDL_Event()
 
-        while sdl3.SDL_PollEvent(ctypes.byref(event)):
+        while sdl3.SDL_PollEvent(byref(event)):
             match event.type:
                 # Handle different types of events
                 case sdl3.SDL_EVENT_QUIT:
                     self.done = True
 
                 case sdl3.SDL_EVENT_KEY_DOWN:
-                    if event.key.key in [sdl3.SDLK_ESCAPE]:
+                    if event.key.key in [sdl3.SDLK_ESCAPE, sdl3.SDLK_Q]:
                        self.done = True
 
 
     def render(self) -> None:
-        rgba_back: tuple[c_float, c_float, c_float, c_float] = (0,0,0, 1)
-
-        sdl3.SDL_SetRenderDrawColorFloat(self.renderer, *rgba_back)
+        self.rgba_color(0, 0, 0, 1)
         sdl3.SDL_RenderClear(self.renderer)
 
-        rgba_front: tuple[c_float, c_float, c_float, c_float] = (1 ,0,0, 1)
-        sdl3.SDL_SetRenderDrawColorFloat(self.renderer, *rgba_front)
+        self.rgba_color(1, 0, 0, 1)
 
         step = 5
         center: tuple[float, float] = (self.width / 2.0, self.height / 2.0)
         for x in range(0, self.width, step):
            for y in range(0, self.height, step):
-               sdl3.SDL_RenderLine(self.renderer,
-                   *[c_float(q) for q in center],
-                   c_float(x), c_float(y))
+               self.line(*center, x, y)
 
-        frect1 = sdl3.SDL_FRect()
-        frect1.x = 200.0
-        frect1.y = 150.0
-        frect1.w = 400.0
-        frect1.h = 300.0
-
-        sdl3.SDL_RenderFillRect(self.renderer, ctypes.byref(frect1))
+        self.rgba_color(0, 1, 0, 1)
+        self.rect(200, 150, 400, 300)
 
         sdl3.SDL_RenderPresent(self.renderer)
+
+    def rgba_color(self, red: float, green: float, blue: float, alpha: float) -> bool:
+        return bool(
+            sdl3.SDL_SetRenderDrawColorFloat(self.renderer,
+                c_float(red),
+                c_float(green),
+                c_float(blue),
+                c_float(alpha)
+            )
+        )
+
+    def line(self, x1: float, y1: float, x2: float, y2: float) -> bool:
+        return bool(
+            sdl3.SDL_RenderLine(self.renderer,
+                c_float(x1),
+                c_float(y1),
+                c_float(x2),
+                c_float(y2)
+            )
+        )
+
+    def rect(self, x: float, y: float, w: float, h: float) -> bool:
+        r = sdl3.SDL_FRect(
+                c_float(x),
+                c_float(y),
+                c_float(w),
+                c_float(h)
+            )
+        return bool(sdl3.SDL_RenderFillRect( self.renderer, byref(r)))
 
 @sdl3.SDL_main_func
 def main(argc: c_int, argv: sdl3.LP_c_char_p) -> int:

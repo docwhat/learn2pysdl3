@@ -1,2 +1,8 @@
-PySDL3
-pygame-ce
+PySDL3 == 0.9.8b2
+pygame-ce == 2.5.3
+
+PyOpenGL == 3.1.9
+
+NumPy == 2.2.6
+PyGLM == 2.8.2
+Pillow == 11.2.1
